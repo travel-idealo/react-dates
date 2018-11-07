@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import shallowCompare from 'react-addons-shallow-compare';
 import momentPropTypes from 'react-moment-proptypes';
 import { forbidExtraProps, mutuallyExclusiveProps, nonNegativeInteger } from 'airbnb-prop-types';
 import { css, withStyles, withStylesPropTypes } from 'react-with-styles';
@@ -19,8 +18,10 @@ import toISOMonthString from '../utils/toISOMonthString';
 import isPrevMonth from '../utils/isPrevMonth';
 import isNextMonth from '../utils/isNextMonth';
 
+import ModifiersShape from '../shapes/ModifiersShape';
 import ScrollableOrientationShape from '../shapes/ScrollableOrientationShape';
 import DayOfWeekShape from '../shapes/DayOfWeekShape';
+
 
 import {
   HORIZONTAL_ORIENTATION,
@@ -33,10 +34,11 @@ const propTypes = forbidExtraProps({
   ...withStylesPropTypes,
   enableOutsideDays: PropTypes.bool,
   firstVisibleMonthIndex: PropTypes.number,
+  horizontalMonthPadding: nonNegativeInteger,
   initialMonth: momentPropTypes.momentObj,
   isAnimating: PropTypes.bool,
   numberOfMonths: PropTypes.number,
-  modifiers: PropTypes.object,
+  modifiers: PropTypes.objectOf(PropTypes.objectOf(ModifiersShape)),
   orientation: ScrollableOrientationShape,
   onDayClick: PropTypes.func,
   onDayMouseEnter: PropTypes.func,
@@ -67,6 +69,7 @@ const propTypes = forbidExtraProps({
 const defaultProps = {
   enableOutsideDays: false,
   firstVisibleMonthIndex: 0,
+  horizontalMonthPadding: 13,
   initialMonth: moment(),
   isAnimating: false,
   numberOfMonths: 1,
@@ -111,7 +114,7 @@ function getMonths(initialMonth, numberOfMonths, withoutTransitionMonths) {
   return months;
 }
 
-class CalendarMonthGrid extends React.Component {
+class CalendarMonthGrid extends React.PureComponent {
   constructor(props) {
     super(props);
     const withoutTransitionMonths = props.orientation === VERTICAL_SCROLLABLE;
@@ -140,15 +143,19 @@ class CalendarMonthGrid extends React.Component {
     const { initialMonth, numberOfMonths, orientation } = nextProps;
     const { months } = this.state;
 
-    const hasMonthChanged = !this.props.initialMonth.isSame(initialMonth, 'month');
-    const hasNumberOfMonthsChanged = this.props.numberOfMonths !== numberOfMonths;
+    const {
+      initialMonth: prevInitialMonth,
+      numberOfMonths: prevNumberOfMonths,
+    } = this.props;
+    const hasMonthChanged = !prevInitialMonth.isSame(initialMonth, 'month');
+    const hasNumberOfMonthsChanged = prevNumberOfMonths !== numberOfMonths;
     let newMonths = months;
 
     if (hasMonthChanged && !hasNumberOfMonthsChanged) {
-      if (isNextMonth(this.props.initialMonth, initialMonth)) {
+      if (isNextMonth(prevInitialMonth, initialMonth)) {
         newMonths = months.slice(1);
         newMonths.push(months[months.length - 1].clone().add(1, 'month'));
-      } else if (isPrevMonth(this.props.initialMonth, initialMonth)) {
+      } else if (isPrevMonth(prevInitialMonth, initialMonth)) {
         newMonths = months.slice(0, months.length - 1);
         newMonths.unshift(months[0].clone().subtract(1, 'month'));
       } else {
@@ -171,10 +178,6 @@ class CalendarMonthGrid extends React.Component {
     this.setState({
       months: newMonths,
     });
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return shallowCompare(this, nextProps, nextState);
   }
 
   componentDidUpdate() {
@@ -230,10 +233,12 @@ class CalendarMonthGrid extends React.Component {
   setContainerRef(ref) {
     this.container = ref;
   }
+
   render() {
     const {
       enableOutsideDays,
       firstVisibleMonthIndex,
+      horizontalMonthPadding,
       isAnimating,
       modifiers,
       numberOfMonths,
@@ -266,11 +271,14 @@ class CalendarMonthGrid extends React.Component {
     const isVerticalScrollable = orientation === VERTICAL_SCROLLABLE;
     const isHorizontal = orientation === HORIZONTAL_ORIENTATION;
 
-    const calendarMonthWidth = getCalendarMonthWidth(daySize);
+    const calendarMonthWidth = getCalendarMonthWidth(
+      daySize,
+      horizontalMonthPadding,
+    );
 
-    const width = isVertical || isVerticalScrollable ?
-      calendarMonthWidth :
-      (numberOfMonths + 2) * calendarMonthWidth;
+    const width = isVertical || isVerticalScrollable
+      ? calendarMonthWidth
+      : (numberOfMonths + 2) * calendarMonthWidth;
 
     const transformType = (isVertical || isVerticalScrollable) ? 'translateY' : 'translateX';
     const transformValue = `${transformType}(${translationValue}px)`;
@@ -345,6 +353,7 @@ class CalendarMonthGrid extends React.Component {
                 setMonthTitleHeight={setMonthTitleHeight}
                 dayAriaLabelFormat={dayAriaLabelFormat}
                 verticalBorderSpacing={verticalBorderSpacing}
+                horizontalMonthPadding={horizontalMonthPadding}
               />
             </div>
           );
@@ -357,7 +366,14 @@ class CalendarMonthGrid extends React.Component {
 CalendarMonthGrid.propTypes = propTypes;
 CalendarMonthGrid.defaultProps = defaultProps;
 
-export default withStyles(({ reactDates: { color, zIndex } }) => ({
+export default withStyles(({
+  reactDates: {
+    color,
+    noScrollBarOnVerticalScrollable,
+    spacing,
+    zIndex,
+  },
+}) => ({
   CalendarMonthGrid: {
     background: color.background,
     textAlign: 'left',
@@ -370,7 +386,7 @@ export default withStyles(({ reactDates: { color, zIndex } }) => ({
 
   CalendarMonthGrid__horizontal: {
     position: 'absolute',
-    left: 9,
+    left: spacing.dayPickerHorizontalPadding,
   },
 
   CalendarMonthGrid__vertical: {
@@ -380,6 +396,13 @@ export default withStyles(({ reactDates: { color, zIndex } }) => ({
   CalendarMonthGrid__vertical_scrollable: {
     margin: '0 auto',
     overflowY: 'scroll',
+    ...(noScrollBarOnVerticalScrollable && {
+      '-webkitOverflowScrolling': 'touch',
+      '::-webkit-scrollbar': {
+        '-webkit-appearance': 'none',
+        display: 'none',
+      },
+    }),
   },
 
   CalendarMonthGrid_month__horizontal: {
@@ -398,4 +421,4 @@ export default withStyles(({ reactDates: { color, zIndex } }) => ({
   CalendarMonthGrid_month__hidden: {
     visibility: 'hidden',
   },
-}))(CalendarMonthGrid);
+}), { pureComponent: typeof React.PureComponent !== 'undefined' })(CalendarMonthGrid);

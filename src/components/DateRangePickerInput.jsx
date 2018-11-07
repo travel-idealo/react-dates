@@ -398,4 +398,4 @@ export default withStyles(({ reactDates: { border, color, sizing } }) => ({
     width: 14,
     verticalAlign: 'middle',
   },
-}))(DateRangePickerInput);
+}), { pureComponent: typeof React.PureComponent !== 'undefined' })(DateRangePickerInput);

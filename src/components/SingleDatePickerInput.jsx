@@ -193,8 +193,6 @@ function SingleDatePickerInput({
           type="button"
           aria-label={phrases.clearDate}
           disabled={disabled}
-          onMouseEnter={this.onClearDateMouseEnter}
-          onMouseLeave={this.onClearDateMouseLeave}
           onClick={onClearDate}
         >
           {closeIcon}
@@ -308,4 +306,4 @@ export default withStyles(({ reactDates: { border, color } }) => ({
     width: 14,
     verticalAlign: 'middle',
   },
-}))(SingleDatePickerInput);
+}), { pureComponent: typeof React.PureComponent !== 'undefined' })(SingleDatePickerInput);

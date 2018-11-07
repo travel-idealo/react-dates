@@ -89,5 +89,4 @@ export default withStyles(({ reactDates: { color } }) => ({
     wordBreak: 'break-word',
     marginLeft: 8,
   },
-}))(KeyboardShortcutRow);
-
+}), { pureComponent: typeof React.PureComponent !== 'undefined' })(KeyboardShortcutRow);

@@ -59,6 +59,7 @@ const propTypes = forbidExtraProps({
   noBorder: PropTypes.bool,
   verticalBorderSpacing: nonNegativeInteger,
   transitionDuration: nonNegativeInteger,
+  horizontalMonthPadding: nonNegativeInteger,
 
   navPrev: PropTypes.node,
   navNext: PropTypes.node,
@@ -75,6 +76,8 @@ const propTypes = forbidExtraProps({
   onBlur: PropTypes.func,
   isFocused: PropTypes.bool,
   showKeyboardShortcuts: PropTypes.bool,
+  onTab: PropTypes.func,
+  onShiftTab: PropTypes.func,
 
   // i18n
   monthFormat: PropTypes.string,
@@ -112,6 +115,7 @@ const defaultProps = {
   noBorder: false,
   verticalBorderSpacing: undefined,
   transitionDuration: undefined,
+  horizontalMonthPadding: 13,
 
   navPrev: null,
   navNext: null,
@@ -130,6 +134,8 @@ const defaultProps = {
   onBlur() {},
   isFocused: false,
   showKeyboardShortcuts: false,
+  onTab() {},
+  onShiftTab() {},
 
   // i18n
   monthFormat: 'MMMM YYYY',
@@ -140,7 +146,7 @@ const defaultProps = {
   isRTL: false,
 };
 
-export default class DayPickerSingleDateController extends React.Component {
+export default class DayPickerSingleDateController extends React.PureComponent {
   constructor(props) {
     super(props);
 
@@ -195,23 +201,33 @@ export default class DayPickerSingleDateController extends React.Component {
       numberOfMonths,
       enableOutsideDays,
     } = nextProps;
+    const {
+      isOutsideRange: prevIsOutsideRange,
+      isDayBlocked: prevIsDayBlocked,
+      isDayHighlighted: prevIsDayHighlighted,
+      numberOfMonths: prevNumberOfMonths,
+      enableOutsideDays: prevEnableOutsideDays,
+      initialVisibleMonth: prevInitialVisibleMonth,
+      focused: prevFocused,
+      date: prevDate,
+    } = this.props;
     let { visibleDays } = this.state;
 
     let recomputeOutsideRange = false;
     let recomputeDayBlocked = false;
     let recomputeDayHighlighted = false;
 
-    if (isOutsideRange !== this.props.isOutsideRange) {
+    if (isOutsideRange !== prevIsOutsideRange) {
       this.modifiers['blocked-out-of-range'] = day => isOutsideRange(day);
       recomputeOutsideRange = true;
     }
 
-    if (isDayBlocked !== this.props.isDayBlocked) {
+    if (isDayBlocked !== prevIsDayBlocked) {
       this.modifiers['blocked-calendar'] = day => isDayBlocked(day);
       recomputeDayBlocked = true;
     }
 
-    if (isDayHighlighted !== this.props.isDayHighlighted) {
+    if (isDayHighlighted !== prevIsDayHighlighted) {
       this.modifiers['highlighted-calendar'] = day => isDayHighlighted(day);
       recomputeDayHighlighted = true;
     }
@@ -221,12 +237,12 @@ export default class DayPickerSingleDateController extends React.Component {
     );
 
     if (
-      numberOfMonths !== this.props.numberOfMonths ||
-      enableOutsideDays !== this.props.enableOutsideDays ||
-      (
-        initialVisibleMonth !== this.props.initialVisibleMonth &&
-        !this.props.focused &&
-        focused
+      numberOfMonths !== prevNumberOfMonths
+      || enableOutsideDays !== prevEnableOutsideDays
+      || (
+        initialVisibleMonth !== prevInitialVisibleMonth
+        && !prevFocused
+        && focused
       )
     ) {
       const newMonthState = this.getStateForNewMonth(nextProps);
@@ -238,13 +254,13 @@ export default class DayPickerSingleDateController extends React.Component {
       });
     }
 
-    const didDateChange = date !== this.props.date;
-    const didFocusChange = focused !== this.props.focused;
+    const didDateChange = date !== prevDate;
+    const didFocusChange = focused !== prevFocused;
 
     let modifiers = {};
 
     if (didDateChange) {
-      modifiers = this.deleteModifier(modifiers, this.props.date, 'selected');
+      modifiers = this.deleteModifier(modifiers, prevDate, 'selected');
       modifiers = this.addModifier(modifiers, date, 'selected');
     }
 
@@ -404,8 +420,12 @@ export default class DayPickerSingleDateController extends React.Component {
   onMonthChange(newMonth) {
     const { numberOfMonths, enableOutsideDays, orientation } = this.props;
     const withoutTransitionMonths = orientation === VERTICAL_SCROLLABLE;
-    const newVisibleDays =
-      getVisibleDays(newMonth, numberOfMonths, enableOutsideDays, withoutTransitionMonths);
+    const newVisibleDays = getVisibleDays(
+      newMonth,
+      numberOfMonths,
+      enableOutsideDays,
+      withoutTransitionMonths,
+    );
 
     this.setState({
       currentMonth: newMonth.clone(),
@@ -416,8 +436,12 @@ export default class DayPickerSingleDateController extends React.Component {
   onYearChange(newMonth) {
     const { numberOfMonths, enableOutsideDays, orientation } = this.props;
     const withoutTransitionMonths = orientation === VERTICAL_SCROLLABLE;
-    const newVisibleDays =
-      getVisibleDays(newMonth, numberOfMonths, enableOutsideDays, withoutTransitionMonths);
+    const newVisibleDays = getVisibleDays(
+      newMonth,
+      numberOfMonths,
+      enableOutsideDays,
+      withoutTransitionMonths,
+    );
 
     this.setState({
       currentMonth: newMonth.clone(),
@@ -490,7 +514,9 @@ export default class DayPickerSingleDateController extends React.Component {
 
     let currentMonth = firstVisibleMonth;
     let numberOfMonths = numberOfVisibleMonths;
-    if (orientation !== VERTICAL_SCROLLABLE) {
+    if (orientation === VERTICAL_SCROLLABLE) {
+      numberOfMonths = Object.keys(visibleDays).length;
+    } else {
       currentMonth = currentMonth.clone().subtract(1, 'month');
       numberOfMonths += 2;
     }
@@ -542,7 +568,9 @@ export default class DayPickerSingleDateController extends React.Component {
 
     let currentMonth = firstVisibleMonth;
     let numberOfMonths = numberOfVisibleMonths;
-    if (orientation !== VERTICAL_SCROLLABLE) {
+    if (orientation === VERTICAL_SCROLLABLE) {
+      numberOfMonths = Object.keys(visibleDays).length;
+    } else {
       currentMonth = currentMonth.clone().subtract(1, 'month');
       numberOfMonths += 2;
     }
@@ -599,7 +627,8 @@ export default class DayPickerSingleDateController extends React.Component {
   }
 
   isSelected(day) {
-    return isSameDay(day, this.props.date);
+    const { date } = this.props;
+    return isSameDay(day, date);
   }
 
   isToday(day) {
@@ -625,6 +654,8 @@ export default class DayPickerSingleDateController extends React.Component {
       navPrev,
       navNext,
       onOutsideClick,
+      onShiftTab,
+      onTab,
       withPortal,
       focused,
       enableOutsideDays,
@@ -647,6 +678,7 @@ export default class DayPickerSingleDateController extends React.Component {
       noBorder,
       transitionDuration,
       verticalBorderSpacing,
+      horizontalMonthPadding,
     } = this.props;
 
     const { currentMonth, visibleDays } = this.state;
@@ -682,6 +714,8 @@ export default class DayPickerSingleDateController extends React.Component {
         isFocused={isFocused}
         getFirstFocusableDay={this.getFirstFocusableDay}
         onBlur={onBlur}
+        onTab={onTab}
+        onShiftTab={onShiftTab}
         phrases={phrases}
         daySize={daySize}
         isRTL={isRTL}
@@ -692,6 +726,7 @@ export default class DayPickerSingleDateController extends React.Component {
         noBorder={noBorder}
         transitionDuration={transitionDuration}
         verticalBorderSpacing={verticalBorderSpacing}
+        horizontalMonthPadding={horizontalMonthPadding}
       />
     );
   }

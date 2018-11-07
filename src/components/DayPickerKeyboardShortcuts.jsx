@@ -72,11 +72,12 @@ function getKeyboardShortcuts(phrases) {
   ];
 }
 
-class DayPickerKeyboardShortcuts extends React.Component {
+class DayPickerKeyboardShortcuts extends React.PureComponent {
   constructor(...args) {
     super(...args);
 
-    this.keyboardShortcuts = getKeyboardShortcuts(this.props.phrases);
+    const { phrases } = this.props;
+    this.keyboardShortcuts = getKeyboardShortcuts(phrases);
 
     this.onShowKeyboardShortcutsButtonClick = this.onShowKeyboardShortcutsButtonClick.bind(this);
     this.setShowKeyboardShortcutsButtonRef = this.setShowKeyboardShortcutsButtonRef.bind(this);
@@ -86,7 +87,8 @@ class DayPickerKeyboardShortcuts extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (nextProps.phrases !== this.props.phrases) {
+    const { phrases } = this.props;
+    if (nextProps.phrases !== phrases) {
       this.keyboardShortcuts = getKeyboardShortcuts(nextProps.phrases);
     }
   }
@@ -211,7 +213,7 @@ class DayPickerKeyboardShortcuts extends React.Component {
           </span>
         </button>
 
-        {showKeyboardShortcutsPanel &&
+        {showKeyboardShortcutsPanel && (
           <div
             {...css(styles.DayPickerKeyboardShortcuts_panel)}
             role="dialog"
@@ -255,7 +257,7 @@ class DayPickerKeyboardShortcuts extends React.Component {
               ))}
             </ul>
           </div>
-        }
+        )}
       </div>
     );
   }
@@ -392,4 +394,4 @@ export default withStyles(({ reactDates: { color, font, zIndex } }) => ({
       fill: color.core.grayLight,
     },
   },
-}))(DayPickerKeyboardShortcuts);
+}), { pureComponent: typeof React.PureComponent !== 'undefined' })(DayPickerKeyboardShortcuts);
